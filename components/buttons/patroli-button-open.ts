@@ -7,6 +7,7 @@ import {
   LabelBuilder,
 } from "discord.js";
 
+
 module.exports = {
   customId: "patroli:open_modal",
   async execute(interaction: ButtonInteraction) {
@@ -15,15 +16,6 @@ module.exports = {
       .setTitle("Patroli Form");
 
     modal.addLabelComponents(
-      new LabelBuilder()
-        .setLabel("Nama Operator")
-        .setTextInputComponent(
-          new TextInputBuilder()
-            .setCustomId("operator")
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder("Display Name Roblox")
-            .setRequired(true)
-        ),
       new LabelBuilder()
         .setLabel("Waktu Patroli")
         .setTextInputComponent(

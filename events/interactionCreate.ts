@@ -10,9 +10,7 @@ module.exports = {
       console.log(`executed ${interaction.commandName}`);
 
       if (!command) {
-        console.error(
-          `No command matching ${interaction.commandName} was found.`,
-        );
+        console.error(`No command matching ${interaction.commandName} was found.`);
         return;
       }
 
@@ -38,7 +36,12 @@ module.exports = {
       interaction.isStringSelectMenu()
     ) {
       // @ts-expect-error - Custom property on client
-      const component = interaction.client.components.get(interaction.customId);
+      const components = interaction.client.components;
+
+      // Try exact match first, then prefix match
+      const component =
+        components.get(interaction.customId) ??
+        components.find((_: any, key: string) => interaction.customId.startsWith(key));
 
       if (component) {
         try {

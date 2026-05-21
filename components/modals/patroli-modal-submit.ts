@@ -2,15 +2,15 @@ import {
   ModalSubmitInteraction,
   TextChannel,
   AttachmentBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ActionRowBuilder,
 } from "discord.js";
 
 module.exports = {
   customId: "patroli:submit_form",
   async execute(interaction: ModalSubmitInteraction) {
-    // Defer immediately — fetching the image buffer can take a moment
     await interaction.deferReply({ flags: 64 });
-
-    const operator = interaction.fields.getTextInputValue("operator");
     const waktu = interaction.fields.getTextInputValue("waktu");
     const lokasi = interaction.fields.getTextInputValue("lokasi") || "-";
     const catatan = interaction.fields.getTextInputValue("catatan") || "-";
@@ -18,9 +18,6 @@ module.exports = {
     const uploadedFiles = interaction.fields.getUploadedFiles("foto");
     const foto = uploadedFiles?.first() ?? null;
 
-    console.log("[patroli:submit_form] foto url:", foto?.url ?? "none");
-
-    // ✅ Fetch the image as a buffer IMMEDIATELY before the CDN URL expires
     let fotoAttachment: AttachmentBuilder | null = null;
     if (foto) {
       try {
@@ -37,23 +34,40 @@ module.exports = {
     }
 
     const logChannel = await interaction.client.channels.fetch(
-      process.env.CHANNEL_ID!,
+      "1497461736691728496",
     );
-
-    if (logChannel?.isTextBased()) {
-      await (logChannel as TextChannel).send({
-        content:
-          `**📋 Laporan Patroli Baru**\n` +
-          `👤 **Operator**: ${operator}\n` +
-          `⏰ **Waktu**: ${waktu}\n` +
-          `📍 **Lokasi**: ${lokasi}\n` +
-          `📝 **Catatan**: ${catatan}`,
-        files: fotoAttachment ? [fotoAttachment] : [],
-      });
+    if (!logChannel?.isTextBased()) {
+      await interaction.editReply({ content: "❌ Channel tidak ditemukan." });
+      return;
     }
 
-    await interaction.editReply({
-      content: "✅ Laporan berhasil dikirim!",
+    const approveButton = new ButtonBuilder()
+      .setCustomId(`patroli:approve:${interaction.user.id}`)
+      .setLabel("✅ Approve")
+      .setStyle(ButtonStyle.Success);
+
+    const rejectButton = new ButtonBuilder()
+      .setCustomId(`patroli:reject:${interaction.user.id}`)
+      .setLabel("❌ Reject")
+      .setStyle(ButtonStyle.Danger);
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      approveButton,
+      rejectButton,
+    );
+
+    await (logChannel as TextChannel).send({
+      content:
+        `**📋 Laporan Patroli Baru**\n` +
+        `**Submitted by**: <@${interaction.user.id}>\n\n` +
+        `**Waktu**: ${waktu}\n` +
+        `**Lokasi**: ${lokasi}\n` +
+        `**Catatan**: ${catatan}\n` +
+        `-# 🔒 Tombol approve/reject hanya untuk admin.`,
+      files: fotoAttachment ? [fotoAttachment] : [],
+      components: [row],
     });
+
+    await interaction.editReply({ content: "✅ Laporan berhasil dikirim!" });
   },
 };
