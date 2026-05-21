@@ -1,9 +1,10 @@
-import { Events, MessageFlags } from "discord.js";
+import { Events, MessageFlags, Interaction } from "discord.js";
 
 module.exports = {
   name: Events.InteractionCreate,
-  async execute(interaction) {
+  async execute(interaction: Interaction) {
     if (interaction.isChatInputCommand()) {
+      // @ts-expect-error - Custom property on client
       const command = interaction.client.commands.get(interaction.commandName);
 
       console.log(`executed ${interaction.commandName}`);
@@ -36,6 +37,7 @@ module.exports = {
       interaction.isModalSubmit() ||
       interaction.isStringSelectMenu()
     ) {
+      // @ts-expect-error - Custom property on client
       const component = interaction.client.components.get(interaction.customId);
 
       if (component) {
