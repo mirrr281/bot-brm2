@@ -1,4 +1,9 @@
 import { MessageFlags, PermissionsBitField } from "discord.js";
+import { getHoHReport } from "../../utils/hallOfHonorReportStore";
+
+const STATUS_PENDING = "⏳ MENUNGGU";
+const STATUS_APPROVED = "✅ DISETUJUI";
+const STATUS_REJECTED = "❌ DITOLAK";
 
 module.exports = {
   customId: "approve_",
@@ -12,45 +17,47 @@ module.exports = {
       });
     }
 
-    const targetUser = interaction.guild?.members.cache.get(targetUserId)?.user;
-    if (!targetUser) {
+    const record = getHoHReport(targetUserId);
+    if (!record) {
       return interaction.reply({
-        content: "User tidak ditemukan di server.",
+        content: "Data pengajuan tidak ditemukan.",
         flags: MessageFlags.Ephemeral,
       });
     }
 
-    const typeMatch = interaction.message.embeds[0]?.title?.match(/Pengajuan (.+) Baru/);
-    const formType = typeMatch ? typeMatch[1] : "Sertifikat";
+    const currentContent = interaction.message.content!;
+    const updatedContent = currentContent
+      .replace(`**STATUS**: ${STATUS_PENDING}`, `**STATUS**: ${STATUS_APPROVED}`)
+      .replace(`**STATUS**: ${STATUS_REJECTED}`, `**STATUS**: ${STATUS_APPROVED}`)
+      + `\n\n✅ Disetujui oleh <@${interaction.user.id}>`;
 
-    const { EmbedBuilder } = await import("discord.js");
-    const logEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
-    logEmbed.setColor(0x00ff00).setTitle(`${logEmbed.data.title} (DISETUJUI)`);
+    await interaction.update({
+      content: updatedContent,
+      components: [],
+    });
 
-    await interaction.update({ embeds: [logEmbed], components: [] });
-
-    const notifyEmbed = new EmbedBuilder()
-      .setColor(0x00ff00)
-      .setTitle("Pengajuan Disetujui!")
-      .setDescription(
-        `Selamat **${targetUser.displayName || targetUser.username}**, kamu mendapatkan **${formType}**!`,
-      )
-      .setTimestamp()
-      .setFooter({ text: "KOPASSUS BRM" });
-
-    const approvalChannelId =
-      process.env.HALL_OF_HONOR_BOARD_CHANNEL_ID ||
-      process.env.HALL_OF_HONOR_CHANNEL_ID;
-    if (approvalChannelId) {
-      const approvalChannel = interaction.guild?.channels.cache.get(approvalChannelId);
-      if (approvalChannel?.isTextBased()) {
-        await approvalChannel.send({ embeds: [notifyEmbed] });
+    if (record.memberMsgId && record.memberChannelId) {
+      try {
+        const memberChannel = interaction.guild?.channels.cache.get(record.memberChannelId);
+        if (memberChannel?.isTextBased()) {
+          const memberMsg = await memberChannel.messages.fetch(record.memberMsgId);
+          const memberContent = memberMsg.content
+            .replace(`**STATUS**: ${STATUS_PENDING}`, `**STATUS**: ${STATUS_APPROVED}`)
+            .replace(`**STATUS**: ${STATUS_REJECTED}`, `**STATUS**: ${STATUS_APPROVED}`)
+            + `\n\n✅ Disetujui oleh <@${interaction.user.id}>`;
+          await memberMsg.edit({ content: memberContent });
+        }
+      } catch {
+        console.error("[hall:approve] failed to update member message");
       }
     }
 
-    await interaction.followUp({
-      content: `Pengajuan **${formType}** dari **${targetUser.tag}** telah disetujui.`,
-      flags: MessageFlags.Ephemeral,
-    });
+    const targetUser = interaction.guild?.members.cache.get(targetUserId)?.user;
+    if (targetUser) {
+      await interaction.followUp({
+        content: `Pengajuan **${record.jenis}** dari **${targetUser.tag}** telah disetujui.`,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
   },
 };

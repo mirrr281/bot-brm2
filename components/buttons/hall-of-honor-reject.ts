@@ -1,4 +1,9 @@
 import { MessageFlags, PermissionsBitField } from "discord.js";
+import { getHoHReport } from "../../utils/hallOfHonorReportStore";
+
+const STATUS_PENDING = "⏳ MENUNGGU";
+const STATUS_APPROVED = "✅ DISETUJUI";
+const STATUS_REJECTED = "❌ DITOLAK";
 
 module.exports = {
   customId: "reject_",
@@ -12,26 +17,47 @@ module.exports = {
       });
     }
 
-    const targetUser = interaction.guild?.members.cache.get(targetUserId)?.user;
-    if (!targetUser) {
+    const record = getHoHReport(targetUserId);
+    if (!record) {
       return interaction.reply({
-        content: "User tidak ditemukan di server.",
+        content: "Data pengajuan tidak ditemukan.",
         flags: MessageFlags.Ephemeral,
       });
     }
 
-    const typeMatch = interaction.message.embeds[0]?.title?.match(/Pengajuan (.+) Baru/);
-    const formType = typeMatch ? typeMatch[1] : "Sertifikat";
+    const currentContent = interaction.message.content!;
+    const updatedContent = currentContent
+      .replace(`**STATUS**: ${STATUS_PENDING}`, `**STATUS**: ${STATUS_REJECTED}`)
+      .replace(`**STATUS**: ${STATUS_APPROVED}`, `**STATUS**: ${STATUS_REJECTED}`)
+      + `\n\n❌ Ditolak oleh <@${interaction.user.id}>`;
 
-    const { EmbedBuilder } = await import("discord.js");
-    const logEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
-    logEmbed.setColor(0xff0000).setTitle(`${logEmbed.data.title} (DITOLAK)`);
-
-    await interaction.update({ embeds: [logEmbed], components: [] });
-
-    await interaction.followUp({
-      content: `Pengajuan **${formType}** dari **${targetUser.tag}** telah ditolak.`,
-      flags: MessageFlags.Ephemeral,
+    await interaction.update({
+      content: updatedContent,
+      components: [],
     });
+
+    if (record.memberMsgId && record.memberChannelId) {
+      try {
+        const memberChannel = interaction.guild?.channels.cache.get(record.memberChannelId);
+        if (memberChannel?.isTextBased()) {
+          const memberMsg = await memberChannel.messages.fetch(record.memberMsgId);
+          const memberContent = memberMsg.content
+            .replace(`**STATUS**: ${STATUS_PENDING}`, `**STATUS**: ${STATUS_REJECTED}`)
+            .replace(`**STATUS**: ${STATUS_APPROVED}`, `**STATUS**: ${STATUS_REJECTED}`)
+            + `\n\n❌ Ditolak oleh <@${interaction.user.id}>`;
+          await memberMsg.edit({ content: memberContent });
+        }
+      } catch {
+        console.error("[hall:reject] failed to update member message");
+      }
+    }
+
+    const targetUser = interaction.guild?.members.cache.get(targetUserId)?.user;
+    if (targetUser) {
+      await interaction.followUp({
+        content: `Pengajuan **${record.jenis}** dari **${targetUser.tag}** telah ditolak.`,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
   },
 };

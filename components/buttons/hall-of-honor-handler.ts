@@ -1,4 +1,5 @@
 import { MessageFlags, ButtonInteraction, ModalSubmitInteraction } from "discord.js";
+import { saveHoHReport } from "../../utils/hallOfHonorReportStore";
 
 const MODAL_TITLES: Record<string, string> = {
   hall_brevet: "Form Pengajuan Brevet",
@@ -12,17 +13,31 @@ const TYPE_LABELS: Record<string, string> = {
   hall_achievement: "Achievement",
 };
 
+const ADMIN_CHANNEL_ID = process.env.HALL_OF_HONOR_LOG_CHANNEL_ID!;
+const MEMBER_CHANNEL_ID =
+  process.env.HALL_OF_HONOR_MEMBER_CHANNEL_ID ||
+  process.env.HALL_OF_HONOR_BOARD_CHANNEL_ID;
+
 module.exports = {
   customId: "hall_",
   async execute(interaction: ButtonInteraction | ModalSubmitInteraction) {
-    if (interaction.isButton()) {
-      return showModal(interaction);
-    }
-    if (interaction.isModalSubmit()) {
-      return submitForm(interaction);
-    }
+    if (interaction.isButton()) return showModal(interaction);
+    if (interaction.isModalSubmit()) return submitForm(interaction);
   },
 };
+
+function buildContent(jenis: string, operator: string, nama: string, pangkat: string, divisi: string, status: string) {
+  return [
+    `🎖 **Pengajuan ${jenis} Baru**`,
+    "",
+    `**Dari**: ${operator}`,
+    `**Tipe**: ${jenis}`,
+    `**Nama**: ${nama}`,
+    `**Pangkat**: ${pangkat}`,
+    `**Divisi**: ${divisi}`,
+    `**STATUS**: ${status}`,
+  ].join("\n");
+}
 
 async function showModal(interaction: ButtonInteraction) {
   const title = MODAL_TITLES[interaction.customId];
@@ -41,7 +56,7 @@ async function showModal(interaction: ButtonInteraction) {
 }
 
 async function submitForm(interaction: ModalSubmitInteraction) {
-  const formType = TYPE_LABELS[interaction.customId] || "Sertifikat";
+  const jenis = TYPE_LABELS[interaction.customId] || "Sertifikat";
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
@@ -50,35 +65,32 @@ async function submitForm(interaction: ModalSubmitInteraction) {
   const divisi = interaction.fields.getTextInputValue("divisi");
   const buktiFiles = interaction.fields.getUploadedFiles("bukti", true);
 
-  const logChannelId = process.env.HALL_OF_HONOR_LOG_CHANNEL_ID;
-  if (!logChannelId) {
-    return interaction.editReply({
-      content: "Log channel belum dikonfigurasi. Hubungi Administrator.",
-    });
+  if (!ADMIN_CHANNEL_ID) {
+    return interaction.editReply({ content: "Log channel belum dikonfigurasi. Hubungi Administrator." });
   }
 
-  const logChannel = interaction.guild?.channels.cache.get(logChannelId);
-  if (!logChannel?.isTextBased()) {
-    return interaction.editReply({
-      content: "Log channel tidak ditemukan. Hubungi Administrator.",
-    });
+  const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = await import("discord.js");
+
+  const adminChannel = interaction.guild?.channels.cache.get(ADMIN_CHANNEL_ID);
+  if (!adminChannel?.isTextBased()) {
+    return interaction.editReply({ content: "Log channel tidak ditemukan. Hubungi Administrator." });
   }
 
-  const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = await import("discord.js");
+  const operator = `<@${interaction.user.id}>`;
+  const status = "⏳ MENUNGGU";
+  const reportText = buildContent(jenis, operator, nama, pangkat, divisi, status);
 
-  const logEmbed = new EmbedBuilder()
-    .setColor(0xffa500)
-    .setTitle(`Pengajuan ${formType} Baru`)
-    .setDescription(`Pengajuan **${formType}** dari **${interaction.user.tag}**`)
-    .addFields(
-      { name: "Nama", value: nama, inline: true },
-      { name: "Pangkat", value: pangkat, inline: true },
-      { name: "Divisi", value: divisi, inline: true },
-    )
-    .setFooter({ text: `User ID: ${interaction.user.id}` })
-    .setTimestamp();
+  let buktiAttachment: any = null;
+  const files: any[] = [];
+  const firstFile = buktiFiles.first();
+  if (firstFile) {
+    const res = await fetch(firstFile.url);
+    const buffer = Buffer.from(await res.arrayBuffer());
+    buktiAttachment = new AttachmentBuilder(buffer, { name: firstFile.name });
+    files.push(buktiAttachment);
+  }
 
-  const logButtons = new ActionRowBuilder<any>().addComponents(
+  const adminButtons = new ActionRowBuilder<any>().addComponents(
     new ButtonBuilder()
       .setCustomId(`approve_${interaction.user.id}`)
       .setLabel("APPROVE")
@@ -89,17 +101,35 @@ async function submitForm(interaction: ModalSubmitInteraction) {
       .setStyle(ButtonStyle.Danger),
   );
 
-  const logPayload: any = { embeds: [logEmbed], components: [logButtons], files: [] };
-  const buktiAttachment = buktiFiles.first();
-  if (buktiAttachment) {
-    const response = await fetch(buktiAttachment.url);
-    const buffer = Buffer.from(await response.arrayBuffer());
-    logPayload.files.push(new AttachmentBuilder(buffer, { name: buktiAttachment.name }));
-    logEmbed.setImage(`attachment://${buktiAttachment.name}`);
+  const adminPayload: any = {
+    content: reportText + "\n\n-# Tombol approve/reject hanya untuk admin.",
+    components: [adminButtons],
+  };
+  if (files.length > 0) adminPayload.files = files;
+
+  await (adminChannel as any).send(adminPayload);
+
+  let memberMsgId = "";
+  if (MEMBER_CHANNEL_ID) {
+    const memberChannel = interaction.guild?.channels.cache.get(MEMBER_CHANNEL_ID);
+    if (memberChannel?.isTextBased()) {
+      const memberPayload: any = { content: reportText };
+      if (files.length > 0) memberPayload.files = files;
+      const memberMsg = await (memberChannel as any).send(memberPayload);
+      memberMsgId = memberMsg.id;
+    }
   }
 
-  await (logChannel as any).send(logPayload);
+  saveHoHReport(interaction.user.id, {
+    memberMsgId,
+    memberChannelId: MEMBER_CHANNEL_ID || "",
+    jenis,
+    nama,
+    pangkat,
+    divisi,
+  });
+
   return interaction.editReply({
-    content: `Pengajuan **${formType}** berhasil dikirim! Menunggu persetujuan Staff.`,
+    content: `Pengajuan **${jenis}** berhasil dikirim! Menunggu persetujuan Staff.`,
   });
 }

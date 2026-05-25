@@ -7,7 +7,7 @@ import {
   setHallOfHonorMessageId,
 } from "../../utils/hallOfHonorData";
 
-const BANNER_FILE = path.join(__dirname, "../../hall-of-honor-banner.png");
+const BANNER_FILE = path.join(__dirname, "../../assets/hall-of-honor-banner.png");
 
 module.exports = {
   data: new SlashCommandBuilder()
