@@ -1,0 +1,110 @@
+[
+  {
+    "KATEGORI": "PERWIRA PERTAMA",
+    "ROLE_ID": "",
+    "LIST_PANGKAT": [
+      {
+        "PANGKAT": "LETNAN_SATU",
+        "LOGO": "",
+        "POINT": 0,
+        "ROLE_ID": ""
+      },
+      {
+        "PANGKAT": "LETNAN_DUA",
+        "LOGO": "",
+        "POINT": 0,
+        "ROLE_ID": ""
+      }
+    ]
+  },
+  {
+    "KATEGORI": "BINTARA TINGGI",
+    "ROLE_ID": "1507335644849111060",
+    "LIST_PANGKAT": [
+      {
+        "PANGKAT": "PEMBANTU_LETNAN_SATU",
+        "LOGO": "(∑∑)",
+        "POINT": 310,
+        "ROLE_ID": "1507336701356544121"
+      },
+      {
+        "PANGKAT": "PEMBANTU_LETNAN_DUA",
+        "LOGO": "(∑)",
+        "POINT": 280,
+        "ROLE_ID": "1507336664106668172"
+      }
+    ]
+  },
+  {
+    "KATEGORI": "BINTARA",
+    "ROLE_ID": "1507335520202653896",
+    "LIST_PANGKAT": [
+      {
+        "PANGKAT": "SERSAN_MAYOR",
+        "LOGO": "(❮❮❮❮)",
+        "POINT": 250,
+        "ROLE_ID": "1507336615494815774"
+      },
+      {
+        "PANGKAT": "SERSAN_KEPALA",
+        "LOGO": "(❮❮❮)",
+        "POINT": 220,
+        "ROLE_ID": "1507336574587637771"
+      },
+      {
+        "PANGKAT": "SERSAN_SATU",
+        "LOGO": "(❮❮)",
+        "POINT": 190,
+        "ROLE_ID": "1507336542773837834"
+      },
+      {
+        "PANGKAT": "SERSAN_DUA",
+        "LOGO": "(❮)",
+        "POINT": 0,
+        "ROLE_ID": "1507336493310410873"
+      }
+    ]
+  },
+  {
+    "KATEGORI": "TAMTAMA",
+    "ROLE_ID": "1507335576758648872",
+    "LIST_PANGKAT": [
+      {
+        "PANGKAT": "KOPRAL_KEPALA",
+        "LOGO": "(›››)",
+        "POINT": 70,
+        "ROLE_ID": "1507336422208573550"
+      },
+      {
+        "PANGKAT": "KOPRAL_SATU",
+        "LOGO": "(››)",
+        "POINT": 70,
+        "ROLE_ID": "1507336383071781017"
+      },
+      {
+        "PANGKAT": "KOPRAL_DUA",
+        "LOGO": "(›)",
+        "POINT": 70,
+        "ROLE_ID": "1507336193660948490"
+      },
+      {
+        "PANGKAT": "PRAJURIT_KEPALA",
+        "LOGO": "(☰)",
+        "POINT": 70,
+        "ROLE_ID": "1507335772217282600"
+      },
+      {
+        "PANGKAT": "PRAJURIT_SATU",
+        "LOGO": "(═)",
+        "POINT": 70,
+        "ROLE_ID": "1507335892400865310"
+      },
+      {
+        "PANGKAT": "PRAJURIT_DUA",
+        "LOGO": "(—)",
+        "POINT": 70,
+        "ROLE_ID": "1507335722540208229"
+      }
+    ]
+  }
+]

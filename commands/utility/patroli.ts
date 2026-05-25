@@ -3,6 +3,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ActionRowBuilder,
+  EmbedBuilder,
 } from "discord.js";
 
 module.exports = {
@@ -10,6 +11,15 @@ module.exports = {
     .setName("patroli")
     .setDescription("Pendataan patroli"),
   async execute(interaction: any) {
+    const embed = new EmbedBuilder()
+      .setColor(0x33a3cc)
+      .setTitle("🚓 Sistem Patroli")
+      .setDescription("Klik tombol di bawah untuk membuka formulir pendataan patroli.")
+      .addFields(
+        { name: "ℹ️ Informasi", value: "• 1 kali patroli mendapatkan **5 poin**.\n• Patroli hanya bisa dilakukan **sehari sekali**." },
+        { name: "📸 Persyaratan", value: "• Wajib menyertakan **2 bukti foto** saat mengisi formulir." }
+      );
+
     const button = new ButtonBuilder()
       .setCustomId("patroli:open_modal")
       .setLabel("Open Form")
@@ -18,7 +28,7 @@ module.exports = {
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
 
     await interaction.reply({
-      content: "Click the button below to open the form:",
+      embeds: [embed],
       components: [row],
     });
   },
