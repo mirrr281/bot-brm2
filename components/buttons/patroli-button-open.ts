@@ -7,6 +7,7 @@ import {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
   LabelBuilder,
+  MessageFlags,
 } from "discord.js";
 import { hasPatrolledToday } from "../../utils/patroliStorage";
 
@@ -16,7 +17,7 @@ module.exports = {
     if (hasPatrolledToday(interaction.user.id)) {
       return await interaction.reply({
         content: "❌ Anda sudah melakukan patroli hari ini. Silakan kembali besok.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 

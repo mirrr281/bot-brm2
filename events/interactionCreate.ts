@@ -1,5 +1,7 @@
 import { Events, MessageFlags, Interaction } from "discord.js";
 
+const cooldowns = new Set<string>();
+
 module.exports = {
   name: Events.InteractionCreate,
   async execute(interaction: Interaction) {
@@ -35,10 +37,14 @@ module.exports = {
       interaction.isModalSubmit() ||
       interaction.isStringSelectMenu()
     ) {
+      const key = `${interaction.user.id}:${interaction.customId}`;
+      if (cooldowns.has(key)) return;
+      cooldowns.add(key);
+      setTimeout(() => cooldowns.delete(key), 2000);
+
       // @ts-expect-error - Custom property on client
       const components = interaction.client.components;
 
-      // Try exact match first, then prefix match
       const component =
         components.get(interaction.customId) ??
         components.find((_: any, key: string) => interaction.customId.startsWith(key));

@@ -1,15 +1,14 @@
-import {
-  ModalSubmitInteraction,
-  MessageFlags,
-  TextChannel,
-  AttachmentBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ActionRowBuilder,
-} from "discord.js";
+import { ModalSubmitInteraction, MessageFlags } from "discord.js";
 import { updatePatrolRecord } from "../../utils/patroliStorage";
+import {
+  buildReportContent,
+  renderPatrolActions,
+  STATUS_PENDING,
+} from "../../utils/patroliReportRenderer";
+import { savePatrolReport } from "../../utils/patroliReportStore";
 
-const LOG_CHANNEL_ID = process.env.LOG_PATROLI_CHANNEL_ID!;
+const MEMBER_CHANNEL_ID = process.env.LOG_PATROLI_CHANNEL_ID!;
+const ADMIN_CHANNEL_ID = process.env.LOG_PATROLI_ADMIN_CHANNEL_ID!;
 
 module.exports = {
   customId: "patroli:submit_form",
@@ -20,9 +19,10 @@ module.exports = {
     const lokasiValues = interaction.fields.getStringSelectValues("lokasi");
     const lokasi = lokasiValues.length > 0 ? lokasiValues.join(", ") : "-";
     const catatan = interaction.fields.getTextInputValue("catatan") || "-";
+    const { AttachmentBuilder } = await import("discord.js");
 
     const uploadedFiles = interaction.fields.getUploadedFiles("foto");
-    const fotoAttachments: AttachmentBuilder[] = [];
+    const fotoAttachments: any[] = [];
 
     if (uploadedFiles && uploadedFiles.size > 0) {
       for (const [id, foto] of uploadedFiles) {
@@ -40,39 +40,43 @@ module.exports = {
       }
     }
 
-    const logChannel = await interaction.client.channels.fetch(LOG_CHANNEL_ID);
-    if (!logChannel?.isTextBased()) {
-      return await interaction.editReply({
-        content: "❌ Channel tidak ditemukan.",
-      });
+    const adminChannel = await interaction.client.channels.fetch(ADMIN_CHANNEL_ID);
+    if (!adminChannel?.isTextBased()) {
+      return await interaction.editReply({ content: "❌ Admin channel tidak ditemukan." });
     }
 
-    const approveButton = new ButtonBuilder()
-      .setCustomId(`patroli:approve:${interaction.user.id}`)
-      .setLabel("Approve")
-      .setStyle(ButtonStyle.Success);
+    const memberChannel = await interaction.client.channels.fetch(MEMBER_CHANNEL_ID);
+    if (!memberChannel?.isTextBased()) {
+      return await interaction.editReply({ content: "❌ Member channel tidak ditemukan." });
+    }
 
-    const rejectButton = new ButtonBuilder()
-      .setCustomId(`patroli:reject:${interaction.user.id}`)
-      .setLabel("Reject")
-      .setStyle(ButtonStyle.Danger);
+    const operator = `<@${interaction.user.id}>`;
+    const reportText = buildReportContent({ operator, waktu, lokasi, catatan, status: STATUS_PENDING });
 
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      approveButton,
-      rejectButton,
-    );
+    const basePayload: any = {
+      content: reportText + "\n\n-# Tombol approve/reject hanya untuk admin.",
+      files: fotoAttachments.length > 0 ? fotoAttachments : undefined,
+    };
 
-    await (logChannel as TextChannel).send({
-      content:
-        `**Laporan Patroli Baru**\n\n` +
-        `**Submitted by**: <@${interaction.user.id}>\n` +
-        `**Waktu Patroli**: ${waktu}\n` +
-        `**Lokasi**: ${lokasi}\n` +
-        `**Catatan**: ${catatan}\n\n` +
-        `-# Tombol approve/reject hanya untuk admin.`,
-      files: fotoAttachments,
-      components: [row],
+    const memberPayload: any = {
+      content: reportText,
+      files: fotoAttachments.length > 0 ? fotoAttachments : undefined,
+    };
+
+    const memberMsg = await (memberChannel as any).send(memberPayload);
+
+    savePatrolReport(interaction.user.id, {
+      memberMsgId: memberMsg.id,
+      operator,
+      waktu,
+      lokasi,
+      catatan,
     });
+
+    const adminActions = renderPatrolActions(interaction.user.id);
+    const adminPayload: any = { ...basePayload, components: [adminActions] };
+
+    await (adminChannel as any).send(adminPayload);
 
     updatePatrolRecord(interaction.user.id);
     await interaction.editReply({ content: "✅ Laporan berhasil dikirim!" });
