@@ -1,5 +1,6 @@
-import { MessageFlags, ButtonInteraction, ModalSubmitInteraction } from "discord.js";
+import { MessageFlags, ButtonInteraction, ModalSubmitInteraction, EmbedBuilder } from "discord.js";
 import { saveHoHReport } from "../../utils/hallOfHonorReportStore";
+import { buildHoHEmbed, STATUS_PENDING } from "../../utils/hallOfHonorReportRenderer";
 
 const MODAL_TITLES: Record<string, string> = {
   hall_brevet: "Form Pengajuan Brevet",
@@ -13,10 +14,9 @@ const TYPE_LABELS: Record<string, string> = {
   hall_achievement: "Achievement",
 };
 
-const ADMIN_CHANNEL_ID = process.env.HALL_OF_HONOR_LOG_CHANNEL_ID!;
+const ADMIN_CHANNEL_ID = process.env.HALL_OF_HONOR_APPROVAL_CHANNEL_ID!;
 const MEMBER_CHANNEL_ID =
-  process.env.HALL_OF_HONOR_MEMBER_CHANNEL_ID ||
-  process.env.HALL_OF_HONOR_BOARD_CHANNEL_ID;
+  process.env.HALL_OF_HONOR_MEMBER_CHANNEL_ID;
 
 module.exports = {
   customId: "hall_",
@@ -25,19 +25,6 @@ module.exports = {
     if (interaction.isModalSubmit()) return submitForm(interaction);
   },
 };
-
-function buildContent(jenis: string, operator: string, nama: string, pangkat: string, divisi: string, status: string) {
-  return [
-    `🎖 **Pengajuan ${jenis} Baru**`,
-    "",
-    `**Dari**: ${operator}`,
-    `**Tipe**: ${jenis}`,
-    `**Nama**: ${nama}`,
-    `**Pangkat**: ${pangkat}`,
-    `**Divisi**: ${divisi}`,
-    `**STATUS**: ${status}`,
-  ].join("\n");
-}
 
 async function showModal(interaction: ButtonInteraction) {
   const title = MODAL_TITLES[interaction.customId];
@@ -77,8 +64,7 @@ async function submitForm(interaction: ModalSubmitInteraction) {
   }
 
   const operator = `<@${interaction.user.id}>`;
-  const status = "⏳ MENUNGGU";
-  const reportText = buildContent(jenis, operator, nama, pangkat, divisi, status);
+  const embed = buildHoHEmbed({ jenis, operator, nama, pangkat, divisi, status: STATUS_PENDING });
 
   let buktiAttachment: any = null;
   const files: any[] = [];
@@ -88,6 +74,7 @@ async function submitForm(interaction: ModalSubmitInteraction) {
     const buffer = Buffer.from(await res.arrayBuffer());
     buktiAttachment = new AttachmentBuilder(buffer, { name: firstFile.name });
     files.push(buktiAttachment);
+    embed.setImage(`attachment://${firstFile.name}`);
   }
 
   const adminButtons = new ActionRowBuilder<any>().addComponents(
@@ -102,7 +89,7 @@ async function submitForm(interaction: ModalSubmitInteraction) {
   );
 
   const adminPayload: any = {
-    content: reportText + "\n\n-# Tombol approve/reject hanya untuk admin.",
+    embeds: [embed],
     components: [adminButtons],
   };
   if (files.length > 0) adminPayload.files = files;
@@ -113,7 +100,7 @@ async function submitForm(interaction: ModalSubmitInteraction) {
   if (MEMBER_CHANNEL_ID) {
     const memberChannel = interaction.guild?.channels.cache.get(MEMBER_CHANNEL_ID);
     if (memberChannel?.isTextBased()) {
-      const memberPayload: any = { content: reportText };
+      const memberPayload: any = { embeds: [embed] };
       if (files.length > 0) memberPayload.files = files;
       const memberMsg = await (memberChannel as any).send(memberPayload);
       memberMsgId = memberMsg.id;

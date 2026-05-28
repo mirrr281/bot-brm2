@@ -1,50 +1,71 @@
+import { SlashCommandBuilder, PermissionsBitField, MessageFlags } from "discord.js";
+import { createPromotionPanel } from "../../utils/promotionRenderer";
 import {
-  SlashCommandBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ActionRowBuilder,
-  EmbedBuilder,
-} from "discord.js";
-import fs from "fs";
-import path from "path";
-
-const promotionData = JSON.parse(
-  fs.readFileSync(path.join(__dirname, "../../promotion.json"), "utf-8"),
-);
+  getPromotionMessageId,
+  setPromotionMessageId,
+} from "../../utils/promotionData";
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("promotion")
-    .setDescription("Cek informasi pangkat dan promosi"),
+    .setName("promotion-post")
+    .setDescription("Post atau update panel Promosi"),
   async execute(interaction: any) {
-    const embed = new EmbedBuilder()
-      .setColor(0x33a3cc)
-      .setTitle("📋 Sistem Promosi")
-      .setDescription(
-        "Klik tombol **Ajukan Kenaikan Pangkat** untuk naik ke pangkat berikutnya jika poinmu mencukupi.\n\n" +
-          "**Urutan pangkat dari tertinggi ke terendah:**",
-      );
-
-    for (const cat of promotionData) {
-      const ranks = cat.LIST_PANGKAT.map(
-        (r: any) => `${r.LOGO || ""} **${r.PANGKAT.replace(/_/g, " ")}** — ${r.POINT} poin`,
-      ).join("\n");
-      embed.addFields({ name: `__${cat.KATEGORI}__`, value: ranks });
+    if (
+      !interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)
+    ) {
+      return interaction.reply({
+        content: "Kamu tidak punya izin untuk menggunakan perintah ini.",
+        flags: MessageFlags.Ephemeral,
+      });
     }
 
-    embed.addFields({
-      name: "Catatan",
-      value:
-        "• Poin didapatkan dari patroli.\n• Promosi akan mengurangi poin sesuai biaya pangkat.\n• Nickname akan otomatis diperbarui dengan logo pangkat baru.",
+    const channelId = process.env.PROMOTION_CHANNEL_ID;
+    if (!channelId) {
+      return interaction.reply({
+        content: "PROMOTION_CHANNEL_ID tidak dikonfigurasi.",
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    const channel = interaction.guild?.channels.cache.get(channelId);
+    if (!channel?.isTextBased()) {
+      return interaction.reply({
+        content: "Channel tidak ditemukan. Periksa konfigurasi.",
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    let message: any = null;
+    const existingId = getPromotionMessageId();
+    if (existingId) {
+      try {
+        message = await channel.messages.fetch(existingId);
+      } catch {
+        message = null;
+      }
+    }
+
+    const payload: any = {
+      components: [createPromotionPanel()],
+      flags: 1 << 15,
+    };
+
+    if (message) {
+      try {
+        await message.edit(payload);
+      } catch {
+        message = null;
+      }
+    }
+
+    if (!message) {
+      message = await channel.send(payload);
+      setPromotionMessageId(message.id);
+    }
+
+    return interaction.reply({
+      content: "Panel Promosi telah dikirim atau diperbarui.",
+      flags: MessageFlags.Ephemeral,
     });
-
-    const button = new ButtonBuilder()
-      .setCustomId("promotion:promote")
-      .setLabel("Ajukan Kenaikan Pangkat")
-      .setStyle(ButtonStyle.Primary);
-
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
-
-    await interaction.reply({ embeds: [embed], components: [row] });
   },
 };

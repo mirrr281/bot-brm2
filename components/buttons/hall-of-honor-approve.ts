@@ -1,9 +1,6 @@
 import { MessageFlags, PermissionsBitField } from "discord.js";
 import { getHoHReport } from "../../utils/hallOfHonorReportStore";
-
-const STATUS_PENDING = "⏳ MENUNGGU";
-const STATUS_APPROVED = "✅ DISETUJUI";
-const STATUS_REJECTED = "❌ DITOLAK";
+import { buildHoHEmbed, STATUS_PENDING, STATUS_REJECTED, STATUS_APPROVED } from "../../utils/hallOfHonorReportRenderer";
 
 module.exports = {
   customId: "approve_",
@@ -25,14 +22,19 @@ module.exports = {
       });
     }
 
-    const currentContent = interaction.message.content!;
-    const updatedContent = currentContent
-      .replace(`**STATUS**: ${STATUS_PENDING}`, `**STATUS**: ${STATUS_APPROVED}`)
-      .replace(`**STATUS**: ${STATUS_REJECTED}`, `**STATUS**: ${STATUS_APPROVED}`)
-      + `\n\n✅ Disetujui oleh <@${interaction.user.id}>`;
+    const oldEmbed = interaction.message.embeds[0];
+    const updatedEmbed = buildHoHEmbed({
+      jenis: record.jenis,
+      operator: oldEmbed?.fields?.[0]?.value || "",
+      nama: record.nama,
+      pangkat: record.pangkat,
+      divisi: record.divisi,
+      status: STATUS_APPROVED,
+      approvedBy: `<@${interaction.user.id}>`,
+    });
 
     await interaction.update({
-      content: updatedContent,
+      embeds: [updatedEmbed],
       components: [],
     });
 
@@ -41,11 +43,16 @@ module.exports = {
         const memberChannel = interaction.guild?.channels.cache.get(record.memberChannelId);
         if (memberChannel?.isTextBased()) {
           const memberMsg = await memberChannel.messages.fetch(record.memberMsgId);
-          const memberContent = memberMsg.content
-            .replace(`**STATUS**: ${STATUS_PENDING}`, `**STATUS**: ${STATUS_APPROVED}`)
-            .replace(`**STATUS**: ${STATUS_REJECTED}`, `**STATUS**: ${STATUS_APPROVED}`)
-            + `\n\n✅ Disetujui oleh <@${interaction.user.id}>`;
-          await memberMsg.edit({ content: memberContent });
+          const memberEmbed = buildHoHEmbed({
+            jenis: record.jenis,
+            operator: memberMsg.embeds[0]?.fields?.[0]?.value || "",
+            nama: record.nama,
+            pangkat: record.pangkat,
+            divisi: record.divisi,
+            status: STATUS_APPROVED,
+            approvedBy: `<@${interaction.user.id}>`,
+          });
+          await memberMsg.edit({ embeds: [memberEmbed] });
         }
       } catch {
         console.error("[hall:approve] failed to update member message");
