@@ -1,6 +1,14 @@
-import { MessageFlags, ButtonInteraction, ModalSubmitInteraction, EmbedBuilder } from "discord.js";
+import {
+  MessageFlags,
+  ButtonInteraction,
+  ModalSubmitInteraction,
+  EmbedBuilder,
+} from "discord.js";
 import { saveHoHReport } from "../../utils/hallOfHonorReportStore";
-import { buildHoHEmbed, STATUS_PENDING } from "../../utils/hallOfHonorReportRenderer";
+import {
+  buildHoHEmbed,
+  STATUS_PENDING,
+} from "../../utils/hallOfHonorReportRenderer";
 
 const MODAL_TITLES: Record<string, string> = {
   hall_brevet: "Form Pengajuan Brevet",
@@ -15,8 +23,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const ADMIN_CHANNEL_ID = process.env.HALL_OF_HONOR_APPROVAL_CHANNEL_ID!;
-const MEMBER_CHANNEL_ID =
-  process.env.HALL_OF_HONOR_MEMBER_CHANNEL_ID;
+const MEMBER_CHANNEL_ID = process.env.HALL_OF_HONOR_MEMBER_CHANNEL_ID;
 
 module.exports = {
   customId: "hall_",
@@ -34,10 +41,47 @@ async function showModal(interaction: ButtonInteraction) {
     title,
     custom_id: interaction.customId,
     components: [
-      { type: 18, label: "Nama", component: { type: 4, style: 1, custom_id: "nama", required: true, min_length: 1, max_length: 100 } },
-      { type: 18, label: "Pangkat", component: { type: 4, style: 1, custom_id: "pangkat", required: true, min_length: 1, max_length: 100 } },
-      { type: 18, label: "Divisi", component: { type: 4, style: 1, custom_id: "divisi", required: true, min_length: 1, max_length: 100 } },
-      { type: 18, label: "Bukti", component: { type: 19, custom_id: "bukti", required: true } },
+      {
+        type: 18,
+        label: "Nama",
+        component: {
+          type: 4,
+          style: 1,
+          custom_id: "nama",
+          required: true,
+          min_length: 1,
+          max_length: 100,
+        },
+      },
+      {
+        type: 18,
+        label: "Pangkat",
+        component: {
+          type: 4,
+          style: 1,
+          custom_id: "pangkat",
+          required: true,
+          min_length: 1,
+          max_length: 100,
+        },
+      },
+      {
+        type: 18,
+        label: "Divisi",
+        component: {
+          type: 4,
+          style: 1,
+          custom_id: "divisi",
+          required: true,
+          min_length: 1,
+          max_length: 100,
+        },
+      },
+      {
+        type: 18,
+        label: "Bukti",
+        component: { type: 19, custom_id: "bukti", required: true },
+      },
     ],
   });
 }
@@ -53,18 +97,30 @@ async function submitForm(interaction: ModalSubmitInteraction) {
   const buktiFiles = interaction.fields.getUploadedFiles("bukti", true);
 
   if (!ADMIN_CHANNEL_ID) {
-    return interaction.editReply({ content: "Log channel belum dikonfigurasi. Hubungi Administrator." });
+    return interaction.editReply({
+      content: "Log channel belum dikonfigurasi. Hubungi Administrator.",
+    });
   }
 
-  const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = await import("discord.js");
+  const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } =
+    await import("discord.js");
 
   const adminChannel = interaction.guild?.channels.cache.get(ADMIN_CHANNEL_ID);
   if (!adminChannel?.isTextBased()) {
-    return interaction.editReply({ content: "Log channel tidak ditemukan. Hubungi Administrator." });
+    return interaction.editReply({
+      content: "Log channel tidak ditemukan. Hubungi Administrator.",
+    });
   }
 
   const operator = `<@${interaction.user.id}>`;
-  const embed = buildHoHEmbed({ jenis, operator, nama, pangkat, divisi, status: STATUS_PENDING });
+  const embed = buildHoHEmbed({
+    jenis,
+    operator,
+    nama,
+    pangkat,
+    divisi,
+    status: STATUS_PENDING,
+  });
 
   let buktiAttachment: any = null;
   const files: any[] = [];
@@ -80,11 +136,11 @@ async function submitForm(interaction: ModalSubmitInteraction) {
   const adminButtons = new ActionRowBuilder<any>().addComponents(
     new ButtonBuilder()
       .setCustomId(`approve_${interaction.user.id}`)
-      .setLabel("APPROVE")
+      .setLabel("Approve")
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId(`reject_${interaction.user.id}`)
-      .setLabel("REJECT")
+      .setLabel("Reject")
       .setStyle(ButtonStyle.Danger),
   );
 
@@ -98,7 +154,8 @@ async function submitForm(interaction: ModalSubmitInteraction) {
 
   let memberMsgId = "";
   if (MEMBER_CHANNEL_ID) {
-    const memberChannel = interaction.guild?.channels.cache.get(MEMBER_CHANNEL_ID);
+    const memberChannel =
+      interaction.guild?.channels.cache.get(MEMBER_CHANNEL_ID);
     if (memberChannel?.isTextBased()) {
       const memberPayload: any = { embeds: [embed] };
       if (files.length > 0) memberPayload.files = files;

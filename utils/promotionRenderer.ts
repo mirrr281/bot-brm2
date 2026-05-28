@@ -8,9 +8,10 @@ import {
   ButtonBuilder,
   ButtonStyle,
 } from "discord.js";
+import { getAccentColor } from "./accentColor";
 
 export function createPromotionPanel() {
-  const container = new ContainerBuilder().setAccentColor(0x33a3cc);
+  const container = new ContainerBuilder().setAccentColor(getAccentColor());
 
   container
     .addTextDisplayComponents(

@@ -8,7 +8,7 @@ import {
   ModalSubmitInteraction,
 } from "discord.js";
 import { sendDM, fetchMember, hasRole } from "../../utils/helpers";
-import { replaceStatus, STATUS_REJECTED } from "../../utils/patroliReportRenderer";
+import { createPatroliReportPanel, STATUS_REJECTED, STATUS_PENDING, STATUS_APPROVED } from "../../utils/patroliReportRenderer";
 import { getPatrolReport } from "../../utils/patroliReportStore";
 
 const ALLOWED_ROLE_ID = process.env.STAFFSUS_ID!;
@@ -59,22 +59,41 @@ module.exports = {
         });
       }
 
-      const currentContent = message.content!;
-      const updatedContent = replaceStatus(currentContent, STATUS_REJECTED)
-        + `\n\n❌ Direject oleh <@${interaction.user.id}>\n**Alasan:** ${reason}`;
+      const imageUrls = message.attachments.map((a: any) => a.url);
+
+      const updatedPanel = createPatroliReportPanel(
+        {
+          operator: record.operator,
+          waktu: record.waktu,
+          lokasi: record.lokasi,
+          catatan: record.catatan,
+          status: STATUS_REJECTED,
+          rejectReason: `Ditolak oleh <@${interaction.user.id}> — ${reason}`,
+        },
+        imageUrls,
+      );
 
       await message.edit({
-        content: updatedContent,
-        components: [],
+        components: [updatedPanel],
       });
 
       const memberChannel = await interaction.client.channels.fetch(MEMBER_CHANNEL_ID);
       if (memberChannel?.isTextBased()) {
         try {
           const memberMsg = await memberChannel.messages.fetch(record.memberMsgId);
-          const memberContent = replaceStatus(memberMsg.content!, STATUS_REJECTED)
-            + `\n\n❌ Direject oleh <@${interaction.user.id}>\n**Alasan:** ${reason}`;
-          await memberMsg.edit({ content: memberContent });
+          const memberImageUrls = memberMsg.attachments.map((a: any) => a.url);
+          const memberPanel = createPatroliReportPanel(
+            {
+              operator: record.operator,
+              waktu: record.waktu,
+              lokasi: record.lokasi,
+              catatan: record.catatan,
+              status: STATUS_REJECTED,
+              rejectReason: `Ditolak oleh <@${interaction.user.id}> — ${reason}`,
+            },
+            memberImageUrls,
+          );
+          await memberMsg.edit({ components: [memberPanel] });
         } catch {
           console.error("[patroli:reject] failed to update member message");
         }

@@ -1,4 +1,5 @@
 import { EmbedBuilder } from "discord.js";
+import { getAccentColor } from "./accentColor";
 
 export const STATUS_PENDING = "⏳ MENUNGGU";
 export const STATUS_APPROVED = "✅ DISETUJUI";
@@ -28,16 +29,18 @@ export function buildHoHEmbed(data: {
         : data.status;
 
   const embed = new EmbedBuilder()
-    .setColor(STATUS_COLORS[data.status] || 0xf1c40f)
+    .setColor(getAccentColor())
     .setTitle(`Pengajuan ${data.jenis} Baru`)
+    .setDescription(`Pengajuan **${data.jenis}** dari **${data.operator}**`)
     .addFields(
-      { name: "Dari", value: data.operator, inline: true },
-      { name: "Tipe", value: data.jenis, inline: true },
       { name: "Nama", value: data.nama, inline: true },
       { name: "Pangkat", value: data.pangkat, inline: true },
       { name: "Divisi", value: data.divisi, inline: true },
     )
-    .setFooter({ text: statusText });
+    .setFooter({ text: "Status: " + statusText })
+    
 
+
+    
   return embed;
 }

@@ -54,6 +54,12 @@ module.exports = {
           await component.execute(interaction);
         } catch (err) {
           console.error(err);
+          const reply = { content: "Terjadi kesalahan saat memproses interaksi.", flags: MessageFlags.Ephemeral };
+          if ((interaction as any).replied || (interaction as any).deferred) {
+            await (interaction as any).followUp(reply).catch(() => {});
+          } else {
+            await (interaction as any).reply(reply).catch(() => {});
+          }
         }
       }
     }
