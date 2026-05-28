@@ -1,35 +1,71 @@
+import { SlashCommandBuilder, PermissionsBitField, MessageFlags } from "discord.js";
+import { createPatroliPanel } from "../../utils/patroliRenderer";
 import {
-  SlashCommandBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ActionRowBuilder,
-  EmbedBuilder,
-} from "discord.js";
+  getPatroliMessageId,
+  setPatroliMessageId,
+} from "../../utils/patroliData";
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("patroli")
-    .setDescription("Pendataan patroli"),
+    .setName("patroli-post")
+    .setDescription("Post atau update panel Patroli"),
   async execute(interaction: any) {
-    const embed = new EmbedBuilder()
-      .setColor(0x33a3cc)
-      .setTitle("🚓 Sistem Patroli")
-      .setDescription("Klik tombol di bawah untuk membuka formulir pendataan patroli.")
-      .addFields(
-        { name: "ℹ️ Informasi", value: "• 1 kali patroli mendapatkan **5 poin**.\n• Patroli hanya bisa dilakukan **sehari sekali**." },
-        { name: "📸 Persyaratan", value: "• Wajib menyertakan **2 bukti foto** saat mengisi formulir." }
-      );
+    if (
+      !interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)
+    ) {
+      return interaction.reply({
+        content: "Kamu tidak punya izin untuk menggunakan perintah ini.",
+        flags: MessageFlags.Ephemeral,
+      });
+    }
 
-    const button = new ButtonBuilder()
-      .setCustomId("patroli:open_modal")
-      .setLabel("Open Form")
-      .setStyle(ButtonStyle.Primary);
+    const channelId = process.env.PATROLI_CHANNEL_ID;
+    if (!channelId) {
+      return interaction.reply({
+        content: "PATROLI_CHANNEL_ID tidak dikonfigurasi.",
+        flags: MessageFlags.Ephemeral,
+      });
+    }
 
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
+    const channel = interaction.guild?.channels.cache.get(channelId);
+    if (!channel?.isTextBased()) {
+      return interaction.reply({
+        content: "Channel tidak ditemukan. Periksa konfigurasi.",
+        flags: MessageFlags.Ephemeral,
+      });
+    }
 
-    await interaction.reply({
-      embeds: [embed],
-      components: [row],
+    let message: any = null;
+    const existingId = getPatroliMessageId();
+    if (existingId) {
+      try {
+        message = await channel.messages.fetch(existingId);
+      } catch {
+        message = null;
+      }
+    }
+
+    const payload: any = {
+      components: [createPatroliPanel()],
+      flags: 1 << 15,
+    };
+
+    if (message) {
+      try {
+        await message.edit(payload);
+      } catch {
+        message = null;
+      }
+    }
+
+    if (!message) {
+      message = await channel.send(payload);
+      setPatroliMessageId(message.id);
+    }
+
+    return interaction.reply({
+      content: "Panel Patroli telah dikirim atau diperbarui.",
+      flags: MessageFlags.Ephemeral,
     });
   },
 };

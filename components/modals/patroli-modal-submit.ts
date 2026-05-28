@@ -1,10 +1,6 @@
 import { ModalSubmitInteraction, MessageFlags } from "discord.js";
 import { updatePatrolRecord } from "../../utils/patroliStorage";
-import {
-  buildReportContent,
-  renderPatrolActions,
-  STATUS_PENDING,
-} from "../../utils/patroliReportRenderer";
+import { createPatroliReportPanel, STATUS_PENDING } from "../../utils/patroliReportRenderer";
 import { savePatrolReport } from "../../utils/patroliReportStore";
 
 const MEMBER_CHANNEL_ID = process.env.LOG_PATROLI_CHANNEL_ID!;
@@ -23,19 +19,24 @@ module.exports = {
 
     const uploadedFiles = interaction.fields.getUploadedFiles("foto");
     const fotoAttachments: any[] = [];
+    const imageUrls: string[] = [];
 
     if (uploadedFiles && uploadedFiles.size > 0) {
-      for (const [id, foto] of uploadedFiles) {
+      let index = 0;
+      for (const [, foto] of uploadedFiles) {
         try {
           const res = await fetch(foto.url);
           if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
           const buffer = Buffer.from(await res.arrayBuffer());
           const ext = foto.name?.split(".").pop() ?? "png";
+          const name = `bukti_${index}.${ext}`;
           fotoAttachments.push(
-            new AttachmentBuilder(buffer, { name: `bukti_${id}.${ext}` }),
+            new AttachmentBuilder(buffer, { name }),
           );
+          imageUrls.push(`attachment://${name}`);
+          index++;
         } catch (err) {
-          console.error(`[patroli:submit_form] failed to fetch foto ${id}:`, err);
+          console.error(`[patroli:submit_form] failed to fetch foto:`, err);
         }
       }
     }
@@ -51,19 +52,24 @@ module.exports = {
     }
 
     const operator = `<@${interaction.user.id}>`;
-    const reportText = buildReportContent({ operator, waktu, lokasi, catatan, status: STATUS_PENDING });
+    const adminPanel = createPatroliReportPanel(
+      { operator, waktu, lokasi, catatan, status: STATUS_PENDING },
+      imageUrls,
+      true,
+      interaction.user.id,
+    );
+    const memberPanel = createPatroliReportPanel(
+      { operator, waktu, lokasi, catatan, status: STATUS_PENDING },
+      imageUrls,
+    );
 
-    const basePayload: any = {
-      content: reportText + "\n\n-# Tombol approve/reject hanya untuk admin.",
+    const COMPONENTS_V2_FLAG = 1 << 15;
+
+    const memberMsg = await (memberChannel as any).send({
+      components: [memberPanel],
       files: fotoAttachments.length > 0 ? fotoAttachments : undefined,
-    };
-
-    const memberPayload: any = {
-      content: reportText,
-      files: fotoAttachments.length > 0 ? fotoAttachments : undefined,
-    };
-
-    const memberMsg = await (memberChannel as any).send(memberPayload);
+      flags: COMPONENTS_V2_FLAG,
+    });
 
     savePatrolReport(interaction.user.id, {
       memberMsgId: memberMsg.id,
@@ -73,10 +79,11 @@ module.exports = {
       catatan,
     });
 
-    const adminActions = renderPatrolActions(interaction.user.id);
-    const adminPayload: any = { ...basePayload, components: [adminActions] };
-
-    await (adminChannel as any).send(adminPayload);
+    await (adminChannel as any).send({
+      components: [adminPanel],
+      files: fotoAttachments.length > 0 ? fotoAttachments : undefined,
+      flags: COMPONENTS_V2_FLAG,
+    });
 
     updatePatrolRecord(interaction.user.id);
     await interaction.editReply({ content: "✅ Laporan berhasil dikirim!" });
