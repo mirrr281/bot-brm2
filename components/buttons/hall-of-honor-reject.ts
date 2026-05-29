@@ -1,6 +1,8 @@
 import { MessageFlags, PermissionsBitField } from "discord.js";
 import { getHoHReport } from "../../utils/hallOfHonorReportStore";
-import { buildHoHEmbed, STATUS_PENDING, STATUS_APPROVED, STATUS_REJECTED } from "../../utils/hallOfHonorReportRenderer";
+import { buildHoHEmbed, buildHoHContainer, STATUS_PENDING, STATUS_APPROVED, STATUS_REJECTED } from "../../utils/hallOfHonorReportRenderer";
+
+const COMPONENTS_V2_FLAG = 1 << 15;
 
 module.exports = {
   customId: "reject_",
@@ -22,21 +24,19 @@ module.exports = {
       });
     }
 
-    const oldEmbed = interaction.message.embeds[0];
-    const updatedEmbed = buildHoHEmbed({
+    const imageUrls = interaction.message.attachments.map((a: any) => a.url);
+    const data = {
       jenis: record.jenis,
-      operator: oldEmbed?.fields?.[0]?.value || "",
+      operator: `<@${targetUserId}>`,
       nama: record.nama,
       pangkat: record.pangkat,
       divisi: record.divisi,
       status: STATUS_REJECTED,
       rejectReason: `Ditolak oleh <@${interaction.user.id}>`,
-    });
+    };
 
-    await interaction.update({
-      embeds: [updatedEmbed],
-      components: [],
-    });
+    const updatedContainer = buildHoHContainer(data, imageUrls);
+    await interaction.update({ components: [updatedContainer], flags: COMPONENTS_V2_FLAG });
 
     if (record.memberMsgId && record.memberChannelId) {
       try {
@@ -50,7 +50,6 @@ module.exports = {
             pangkat: record.pangkat,
             divisi: record.divisi,
             status: STATUS_REJECTED,
-            rejectReason: `Ditolak oleh <@${interaction.user.id}>`,
           });
           await memberMsg.edit({ embeds: [memberEmbed] });
         }
