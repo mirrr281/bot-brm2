@@ -2,11 +2,11 @@ import {
   MessageFlags,
   ButtonInteraction,
   ModalSubmitInteraction,
-  EmbedBuilder,
 } from "discord.js";
 import { saveHoHReport } from "../../utils/hallOfHonorReportStore";
 import {
   buildHoHEmbed,
+  buildHoHContainer,
   STATUS_PENDING,
 } from "../../utils/hallOfHonorReportRenderer";
 
@@ -80,7 +80,13 @@ async function showModal(interaction: ButtonInteraction) {
       {
         type: 18,
         label: "Bukti",
-        component: { type: 19, custom_id: "bukti", required: true },
+        component: {
+          type: 19,
+          custom_id: "bukti",
+          required: true,
+          min_values: 1,
+          max_values: 10,
+        },
       },
     ],
   });
@@ -102,8 +108,7 @@ async function submitForm(interaction: ModalSubmitInteraction) {
     });
   }
 
-  const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } =
-    await import("discord.js");
+  const { AttachmentBuilder } = await import("discord.js");
 
   const adminChannel = interaction.guild?.channels.cache.get(ADMIN_CHANNEL_ID);
   if (!adminChannel?.isTextBased()) {
@@ -113,52 +118,42 @@ async function submitForm(interaction: ModalSubmitInteraction) {
   }
 
   const operator = `<@${interaction.user.id}>`;
-  const embed = buildHoHEmbed({
-    jenis,
-    operator,
-    nama,
-    pangkat,
-    divisi,
-    status: STATUS_PENDING,
-  });
+  const data = { jenis, operator, nama, pangkat, divisi, status: STATUS_PENDING };
 
-  let buktiAttachment: any = null;
+  const memberEmbed = buildHoHEmbed(data);
+
   const files: any[] = [];
-  const firstFile = buktiFiles.first();
-  if (firstFile) {
-    const res = await fetch(firstFile.url);
-    const buffer = Buffer.from(await res.arrayBuffer());
-    buktiAttachment = new AttachmentBuilder(buffer, { name: firstFile.name });
-    files.push(buktiAttachment);
-    embed.setImage(`attachment://${firstFile.name}`);
+  const imageUrls: string[] = [];
+  let index = 0;
+  for (const [, file] of buktiFiles) {
+    try {
+      const res = await fetch(file.url);
+      if (!res.ok) throw new Error(`Failed to fetch bukti: ${res.status}`);
+      const buffer = Buffer.from(await res.arrayBuffer());
+      const ext = file.name?.split(".").pop() ?? "png";
+      const name = `bukti_${index}.${ext}`;
+      files.push(new AttachmentBuilder(buffer, { name }));
+      imageUrls.push(`attachment://${name}`);
+      index++;
+    } catch (err) {
+      console.error(`[hall_of_honor] failed to fetch bukti ${file.id}:`, err);
+    }
   }
 
-  const adminButtons = new ActionRowBuilder<any>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`approve_${interaction.user.id}`)
-      .setLabel("Approve")
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId(`reject_${interaction.user.id}`)
-      .setLabel("Reject")
-      .setStyle(ButtonStyle.Danger),
-  );
+  const adminContainer = buildHoHContainer(data, imageUrls, interaction.user.id);
 
-  const adminPayload: any = {
-    embeds: [embed],
-    components: [adminButtons],
-  };
-  if (files.length > 0) adminPayload.files = files;
-
-  await (adminChannel as any).send(adminPayload);
+  await (adminChannel as any).send({
+    components: [adminContainer],
+    files: files.length > 0 ? files : undefined,
+    flags: 1 << 15,
+  });
 
   let memberMsgId = "";
   if (MEMBER_CHANNEL_ID) {
     const memberChannel =
       interaction.guild?.channels.cache.get(MEMBER_CHANNEL_ID);
     if (memberChannel?.isTextBased()) {
-      const memberPayload: any = { embeds: [embed] };
-      if (files.length > 0) memberPayload.files = files;
+      const memberPayload: any = { embeds: [memberEmbed] };
       const memberMsg = await (memberChannel as any).send(memberPayload);
       memberMsgId = memberMsg.id;
     }
